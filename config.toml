@@ -1,0 +1,130 @@
+# pyracing-coach configuration
+
+[garage61]
+# Your Garage61 API token — get it from https://garage61.net/settings
+token = ""
+# "personal" uses your own best lap; "team" uses your team's best
+source = "personal"
+# Re-fetch reference lap if cache is older than this (hours)
+cache_max_age_hours = 24.0
+
+[coaching]
+# How many seconds ahead of a braking zone to start the countdown
+lookahead_seconds = 4.0
+# Countdown steps spoken before the brake point (e.g. [3,2,1] → "3… 2… 1… now")
+countdown_steps = [3, 2, 1]
+# Text spoken at the exact brake point
+brake_cue = "now"
+# Text spoken at a lift-only zone (no significant braking)
+lift_cue = "lift"
+# Throttle must drop below (1 - lift_threshold) to count as a lift zone (0.0–1.0)
+lift_threshold = 0.5
+# Minimum sustained lift samples to count as a zone (at ~60 Hz)
+lift_min_samples = 8
+# Minimum brake pressure (0.0–1.0) in the reference lap to classify as a braking zone
+brake_threshold = 0.5
+# Minimum sustained braking samples to count as a zone (at ~60 Hz)
+brake_min_samples = 10
+
+[alerts]
+# Warn if your brake is this much lighter than reference at the brake point (0.0–1.0)
+brake_delta_warn = 0.15
+# Warn if you're still on throttle when reference is already braking
+throttle_still_on_warn = true
+# Warn if your gear is different from reference at a braking zone
+gear_mismatch_warn = true
+
+[audio]
+# Speech rate in words-per-minute
+rate = 175
+# Volume 0.0–1.0
+volume = 1.0
+# Voice index (0 = first available system voice). Set to -1 to use default.
+voice_index = 0
+
+[critique]
+# "learning" = countdown cues only
+# "critique" = post-zone debrief only
+# "both"     = countdown + debrief
+mode = "both"
+
+# Minimum brake delta (0.0–1.0) before a brake critique fires
+brake_min_delta = 0.08
+# Override the target brake % spoken (leave unset to use reference lap peak)
+# brake_target_override = 1.0
+
+# Spoken template — {actual} and {target} are replaced with integer percentages
+brake_template = "brake {actual}%, try for {target}%"
+
+# How many metres past the zone exit to collect throttle data
+throttle_window_m = 150
+# Throttle position (0.0–1.0) considered "full throttle"
+throttle_full_threshold = 0.95
+# Minimum delta in metres before a throttle critique fires
+throttle_min_delta_m = 15
+
+# Spoken templates — {delta} is replaced with seconds (e.g. "0.4")
+throttle_late_template   = "go full throttle {delta} seconds sooner"
+throttle_early_template  = "wait {delta} seconds before full throttle"
+
+[smoothness]
+# Report smoothness at the end of each lap
+lap_report = true
+# Report smoothness after each braking zone
+zone_report = true
+# Minimum smoothness gap (0.0–1.0) before a critique fires — avoids noise
+min_delta = 0.10
+# Width of reference zone slice used for comparison (as % of lap, e.g. 0.03 = 3%)
+zone_window_pct = 0.03
+
+# Spoken templates — {score} = your score 0-100, {ref} = reference score 0-100
+brake_template          = "smoother on the brakes, you scored {score} versus {ref}"
+throttle_template       = "smoother on the throttle, you scored {score} versus {ref}"
+zone_brake_template     = "smoother brake in that zone"
+zone_throttle_template  = "smoother throttle out of that zone"
+
+[delta]
+# Speak lap delta vs reference lap at regular intervals
+enabled = true
+# How often to call out delta (in seconds of lap time elapsed)
+interval_s = 20.0
+
+[sectors]
+# Speak sector time delta at each split
+enabled = true
+# LapDistPct positions of sector boundaries (0.0–1.0)
+splits = [0.33, 0.66]
+
+[oversteer_understeer]
+# Detect and call out oversteer/understeer mid-corner
+enabled = true
+# How much the yaw ratio must deviate from expected before calling out (0.0–1.0)
+threshold = 0.3
+# Your car's wheelbase in metres (used for expected yaw calculation)
+wheelbase_m = 2.7
+# Minimum LapDistPct gap between consecutive warnings (avoids spam)
+cooldown_pct = 0.05
+oversteer_cue  = "oversteer"
+understeer_cue = "understeer"
+
+[temps]
+# Tyre and brake temperature warnings
+enabled = true
+# Minimum LapDistPct gap between repeat warnings for the same corner
+cooldown_pct = 0.10
+# Tyre temp thresholds in °C (comment out to disable that check)
+tyre_cold_c = 70.0
+tyre_hot_c  = 110.0
+# Brake temp thresholds in °C
+brake_cold_c = 150.0
+brake_hot_c  = 900.0
+
+[app]
+# Telemetry poll interval in seconds
+poll_interval = 0.05
+# Where to cache downloaded reference lap CSVs
+cache_dir = "lap_cache"
+# Write per-session JSON logs
+session_log_enabled = true
+# Directory for session log files
+log_dir = "session_logs"

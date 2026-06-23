@@ -1,0 +1,35 @@
+name: Build & Release EXE
+
+on:
+  push:
+    tags:
+      - "v*"          # triggers on v1.0.0, v0.2.1, etc.
+
+permissions:
+  contents: write   # needed to create the GitHub release
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m venv .venv
+          .venv\Scripts\python.exe -m pip install --upgrade pip setuptools
+          .venv\Scripts\pip install -e ".[build]" --no-build-isolation
+
+      - name: Build EXE
+        run: .venv\Scripts\pyinstaller pyracing-coach.spec
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/pyracing-coach.exe
+          generate_release_notes: true
