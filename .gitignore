@@ -6,3 +6,4 @@ __pycache__/
 lap_cache/
 session_logs/
 /.mise.toml
+/src/pyracing_coach.egg-info

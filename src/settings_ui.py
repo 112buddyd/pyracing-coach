@@ -1,11 +1,10 @@
-"""Settings UI — auto-generated from config SCHEMA with descriptions and audio output selector."""
+"""Settings UI — two-pane layout: category list on left, fields on right."""
 import pyttsx3
 import customtkinter as ctk
 from config import Config, SCHEMA, Field
 
 
 def _get_voices() -> list[str]:
-    """Return list of available system TTS voice names."""
     try:
         engine = pyttsx3.init()
         voices = engine.getProperty("voices")
@@ -17,78 +16,118 @@ def _get_voices() -> list[str]:
 
 
 class SettingsDialog(ctk.CTkToplevel):
-    """Tabbed settings dialog, auto-populated from SCHEMA with descriptions."""
+    """Two-pane settings: category list on left, scrollable fields on right."""
 
     def __init__(self, parent: ctk.CTk, cfg: Config) -> None:
         super().__init__(parent)
         self.cfg = cfg
         self.title("Options")
-        self.geometry("680x540")
+        self.geometry("740x520")
         self.resizable(True, True)
         self.grab_set()
 
-        self._widgets: list[tuple[Field, object]] = []
         self._voice_names: list[str] = _get_voices()
 
-        tabview = ctk.CTkTabview(self, width=650, height=440)
-        tabview.pack(padx=10, pady=(10, 4), fill="both", expand=True)
+        # All widgets across all categories, keyed by field.key
+        self._all_vars: dict[str, tuple[Field, object]] = {}
 
-        # Group fields by tab, preserving order
-        tabs: dict[str, list[Field]] = {}
+        # Group fields by tab
+        self._tabs: dict[str, list[Field]] = {}
         for field in SCHEMA:
-            tabs.setdefault(field.tab, []).append(field)
+            self._tabs.setdefault(field.tab, []).append(field)
 
-        for tab_name, fields in tabs.items():
-            tab = tabview.add(tab_name)
-            scroll = ctk.CTkScrollableFrame(tab, width=630, height=400)
-            scroll.pack(fill="both", expand=True)
-            for i, field in enumerate(fields):
-                self._add_field(scroll, i, field)
+        # Main horizontal split
+        self._main = ctk.CTkFrame(self)
+        self._main.pack(fill="both", expand=True, padx=8, pady=(8, 0))
+        self._main.grid_columnconfigure(1, weight=1)
+        self._main.grid_rowconfigure(0, weight=1)
 
+        # Left: category list
+        cat_frame = ctk.CTkScrollableFrame(self._main, width=160)
+        cat_frame.grid(row=0, column=0, sticky="ns", padx=(0, 8))
+
+        self._cat_buttons: dict[str, ctk.CTkButton] = {}
+        for cat_name in self._tabs:
+            btn = ctk.CTkButton(
+                cat_frame, text=cat_name, width=150, height=30,
+                anchor="w", fg_color="transparent", text_color="gray80",
+                command=lambda n=cat_name: self._select_category(n),
+            )
+            btn.pack(pady=2)
+            self._cat_buttons[cat_name] = btn
+
+        # Right: placeholder — one scrollable frame per category, show/hide
+        self._right_container = ctk.CTkFrame(self._main, fg_color="transparent")
+        self._right_container.grid(row=0, column=1, sticky="nsew")
+
+        self._panels: dict[str, ctk.CTkScrollableFrame] = {}
+        self._active_cat: str = ""
+
+        # Pre-build all panels (hidden)
+        for cat_name, fields in self._tabs.items():
+            panel = ctk.CTkScrollableFrame(self._right_container, fg_color="transparent")
+            for field in fields:
+                self._add_field(panel, field)
+            self._panels[cat_name] = panel
+
+        # Bottom save button
         ctk.CTkButton(self, text="Save", command=self._save, width=120,
-                      fg_color="#2e7d32").pack(pady=(4, 10))
+                      fg_color="#2e7d32").pack(pady=8)
 
-    def _add_field(self, parent: ctk.CTkFrame, row: int, field: Field) -> None:
-        # Row with label + widget
-        base_row = row * 2  # double rows: one for label+widget, one for description
+        # Show first
+        if self._tabs:
+            self._select_category(list(self._tabs.keys())[0])
 
-        ctk.CTkLabel(parent, text=field.label, font=("", 12),
-                     anchor="w").grid(row=base_row, column=0, sticky="w", padx=8, pady=(6, 0))
+    def _select_category(self, name: str) -> None:
+        if name == self._active_cat:
+            return
+
+        # Hide current
+        if self._active_cat and self._active_cat in self._panels:
+            self._panels[self._active_cat].pack_forget()
+
+        # Show new
+        self._panels[name].pack(fill="both", expand=True)
+        self._active_cat = name
+
+        # Highlight
+        for cat, btn in self._cat_buttons.items():
+            if cat == name:
+                btn.configure(fg_color="#1f538d", text_color="white")
+            else:
+                btn.configure(fg_color="transparent", text_color="gray80")
+
+    def _add_field(self, parent: ctk.CTkFrame, field: Field) -> None:
+        frame = ctk.CTkFrame(parent, fg_color="transparent")
+        frame.pack(fill="x", padx=4, pady=(6, 2))
+
+        ctk.CTkLabel(frame, text=field.label, font=("", 12, "bold"),
+                     anchor="w").pack(anchor="w")
+        ctk.CTkLabel(frame, text=field.desc, font=("", 10), text_color="#888",
+                     anchor="w", wraplength=480).pack(anchor="w", pady=(0, 4))
 
         current = self.cfg.get(field.key, field.default)
 
         if field.type == "bool":
             var = ctk.BooleanVar(value=bool(current))
-            ctk.CTkCheckBox(parent, text="", variable=var, width=30).grid(
-                row=base_row, column=1, sticky="w", padx=8, pady=(6, 0))
-
+            ctk.CTkCheckBox(frame, text="Enabled", variable=var).pack(anchor="w")
         elif field.type == "choice":
             choices = self._resolve_choices(field)
             var = ctk.StringVar(value=str(current) if current else (choices[0] if choices else ""))
-            ctk.CTkOptionMenu(parent, values=choices, variable=var, width=220).grid(
-                row=base_row, column=1, sticky="w", padx=8, pady=(6, 0))
-
+            ctk.CTkOptionMenu(frame, values=choices, variable=var, width=260).pack(anchor="w")
         else:
             var = ctk.StringVar(value=str(current) if current is not None else "")
-            ctk.CTkEntry(parent, textvariable=var, width=220).grid(
-                row=base_row, column=1, sticky="w", padx=8, pady=(6, 0))
+            ctk.CTkEntry(frame, textvariable=var, width=260).pack(anchor="w")
 
-        # Description row
-        ctk.CTkLabel(parent, text=field.desc, font=("", 10), text_color="#888",
-                     anchor="w", wraplength=600).grid(
-            row=base_row + 1, column=0, columnspan=2, sticky="w", padx=12, pady=(0, 4))
-
-        self._widgets.append((field, var))
+        self._all_vars[field.key] = (field, var)
 
     def _resolve_choices(self, field: Field) -> list[str]:
-        """Return choice list — static from schema or dynamic (e.g. voices)."""
         if field.key == "audio.voice_name":
             return self._voice_names or ["(default)"]
         return field.choices or []
 
     def _save(self) -> None:
-        """Read all widgets, update Config, write to disk, close."""
-        for field, var in self._widgets:
+        for key, (field, var) in self._all_vars.items():
             raw = var.get()
             try:
                 if field.type == "bool":
